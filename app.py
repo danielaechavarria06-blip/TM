@@ -1,50 +1,59 @@
 import streamlit as st
-import cv2
 import numpy as np
-#from PIL import Image
-from PIL import Image as Image, ImageOps as ImagOps
+from PIL import Image
 from keras.models import load_model
-
 import platform
 
-# Muestra la versión de Python junto con detalles adicionales
-st.write("Versión de Python:", platform.python_version())
+# --- CONFIG ---
+st.set_page_config(page_title="Reconocimiento IA", page_icon="🤖", layout="centered")
 
-model = load_model('keras_model.h5')
-data = np.ndarray(shape=(1, 224, 224, 3), dtype=np.float32)
+# --- CACHE MODELO ---
+@st.cache_resource
+def cargar_modelo():
+    return load_model('keras_model.h5')
 
-st.title("Reconocimiento de Imágenes")
-#st.write("Versión de Python:", platform.python_version())
-image = Image.open('OIG5.jpg')
-st.image(image, width=350)
+model = cargar_modelo()
+
+# --- UI ---
+st.title("🤖 Reconocimiento de Imágenes")
+st.caption(f"Python {platform.python_version()}")
+
 with st.sidebar:
-    st.subheader("Usando un modelo entrenado en teachable Machine puedes Usarlo en esta app para identificar")
+    st.subheader("📸 Instrucciones")
+    st.write("Toma una foto y el modelo intentará clasificarla")
+
+# Imagen de referencia
+try:
+    image = Image.open('OIG5.jpg')
+    st.image(image, width=300, caption="Ejemplo")
+except:
+    st.warning("No se encontró imagen de ejemplo")
+
+# Cámara
 img_file_buffer = st.camera_input("Toma una Foto")
 
 if img_file_buffer is not None:
-    # To read image file buffer with OpenCV:
-    data = np.ndarray(shape=(1, 224, 224, 3), dtype=np.float32)
-   #To read image file buffer as a PIL Image:
-    img = Image.open(img_file_buffer)
+    img = Image.open(img_file_buffer).convert("RGB")
 
-    newsize = (224, 224)
-    img = img.resize(newsize)
-    # To convert PIL Image to numpy array:
+    st.image(img, caption="Imagen capturada", width=300)
+
+    # Preprocesamiento
+    img = img.resize((224, 224))
     img_array = np.array(img)
 
-    # Normalize the image
-    normalized_image_array = (img_array.astype(np.float32) / 127.0) - 1
-    # Load the image into the array
-    data[0] = normalized_image_array
+    normalized = (img_array.astype(np.float32) / 127.0) - 1
+    data = np.expand_dims(normalized, axis=0)
 
-    # run the inference
-    prediction = model.predict(data)
-    print(prediction)
-    if prediction[0][0]>0.5:
-      st.header('Izquierda, con Probabilidad: '+str( prediction[0][0]) )
-    if prediction[0][1]>0.5:
-      st.header('Arriba, con Probabilidad: '+str( prediction[0][1]))
-    #if prediction[0][2]>0.5:
-    # st.header('Derecha, con Probabilidad: '+str( prediction[0][2]))
+    # Predicción
+    with st.spinner("Analizando imagen..."):
+        prediction = model.predict(data)
 
+    st.write("Predicción:", prediction)
 
+    # Interpretación
+    clases = ["Izquierda", "Arriba"]  # ajusta según tu modelo
+    index = np.argmax(prediction)
+    prob = prediction[0][index]
+
+    st.success(f"Resultado: {clases[index]}")
+    st.metric("Confianza", f"{prob:.2f}")
