@@ -1,102 +1,48 @@
-
-app.py
-requirements.txt
-keras_model.h5   ✅
-OIG5.jpg (opcional)
-
 import streamlit as st
+import cv2
 import numpy as np
-from PIL import Image
-from tensorflow.keras.models import load_model
+#from PIL import Image
+from PIL import Image as Image, ImageOps as ImagOps
+from keras.models import load_model
+
 import platform
 
-# --- CONFIGURACIÓN ---
-st.set_page_config(
-    page_title="Reconocimiento de Imágenes",
-    page_icon="🤖",
-    layout="centered"
-)
+# Muestra la versión de Python junto con detalles adicionales
+st.write("Versión de Python:", platform.python_version())
 
-# --- ESTILOS BONITOS ---
-st.markdown("""
-<style>
-.stApp {
-    background: linear-gradient(135deg, #0f172a, #1e293b);
-    color: white;
-}
-h1, h2, h3 {
-    color: #38bdf8;
-}
-</style>
-""", unsafe_allow_html=True)
+model = load_model('keras_model.h5')
+data = np.ndarray(shape=(1, 224, 224, 3), dtype=np.float32)
 
-# --- CARGA SEGURA DEL MODELO ---
-@st.cache_resource
-def cargar_modelo():
-    try:
-        model = load_model('keras_model.h5')
-        return model
-    except Exception as e:
-        st.error(f"❌ Error cargando el modelo: {e}")
-        return None
-
-model = cargar_modelo()
-
-# Si falla el modelo, detener app
-if model is None:
-    st.stop()
-
-# --- UI ---
-st.title("🤖 Reconocimiento de Imágenes")
-st.caption(f"Python {platform.python_version()}")
-
+st.title("Reconocimiento de Imágenes")
+#st.write("Versión de Python:", platform.python_version())
+image = Image.open('OIG5.jpg')
+st.image(image, width=350)
 with st.sidebar:
-    st.subheader("📸 Instrucciones")
-    st.write("Toma una foto y el modelo intentará clasificarla")
-
-# Imagen de ejemplo (opcional)
-try:
-    image = Image.open('OIG5.jpg')
-    st.image(image, width=300, caption="Ejemplo")
-except:
-    st.warning("No se encontró imagen de ejemplo")
-
-# --- CÁMARA ---
+    st.subheader("Usando un modelo entrenado en teachable Machine puedes Usarlo en esta app para identificar")
 img_file_buffer = st.camera_input("Toma una Foto")
 
 if img_file_buffer is not None:
-    try:
-        # Convertir imagen correctamente
-        img = Image.open(img_file_buffer).convert("RGB")
-        st.image(img, caption="Imagen capturada", width=300)
+    # To read image file buffer with OpenCV:
+    data = np.ndarray(shape=(1, 224, 224, 3), dtype=np.float32)
+   #To read image file buffer as a PIL Image:
+    img = Image.open(img_file_buffer)
 
-        # --- PREPROCESAMIENTO ---
-        img = img.resize((224, 224))
-        img_array = np.array(img)
+    newsize = (224, 224)
+    img = img.resize(newsize)
+    # To convert PIL Image to numpy array:
+    img_array = np.array(img)
 
-        normalized = (img_array.astype(np.float32) / 127.0) - 1
-        data = np.expand_dims(normalized, axis=0)
+    # Normalize the image
+    normalized_image_array = (img_array.astype(np.float32) / 127.0) - 1
+    # Load the image into the array
+    data[0] = normalized_image_array
 
-        # --- PREDICCIÓN ---
-        with st.spinner("Analizando imagen..."):
-            prediction = model.predict(data)
-
-        st.write("🔍 Predicción cruda:", prediction)
-
-        # --- INTERPRETACIÓN ---
-        clases = ["Izquierda", "Arriba"]  # Ajusta según tu modelo
-        index = np.argmax(prediction)
-        prob = prediction[0][index]
-
-        st.success(f"Resultado: {clases[index]}")
-        st.metric("Confianza", f"{prob:.2f}")
-
-    except Exception as e:
-        st.error(f"❌ Error procesando la imagen: {e}")
-
-# --- FOOTER ---
-st.markdown("""
-<div style='text-align:center; color:#94a3b8; margin-top:30px;'>
-Hecho con ❤️ usando Streamlit + TensorFlow
-</div>
-""", unsafe_allow_html=True)
+    # run the inference
+    prediction = model.predict(data)
+    print(prediction)
+    if prediction[0][0]>0.5:
+      st.header('Izquierda, con Probabilidad: '+str( prediction[0][0]) )
+    if prediction[0][1]>0.5:
+      st.header('Arriba, con Probabilidad: '+str( prediction[0][1]))
+    #if prediction[0][2]>0.5:
+    # st.header('Derecha, con Probabilidad: '+str( prediction[0][2]))
