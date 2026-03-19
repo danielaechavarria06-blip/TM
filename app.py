@@ -76,7 +76,7 @@ with st.sidebar:
 
 # --- IMAGEN TIBURONCIN 🦈 ---
 try:
-    image = Image.open('TIBURONCIN.jpg')
+    image = Image.open('TIBURONCIN.jpeg')
     st.image(image, width=280, caption="Nuestro tiburoncín 🦈💙")
 except:
     st.warning("No se encontró la imagen TIBURONCIN.jpg")
