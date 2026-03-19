@@ -1,3 +1,2 @@
-0 Izquierda
-1 Arriba
-2 Derecha
+0 MACARENA 1
+1 MACARENA 2
