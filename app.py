@@ -1,48 +1,127 @@
 import streamlit as st
-import cv2
 import numpy as np
-#from PIL import Image
-from PIL import Image as Image, ImageOps as ImagOps
-from keras.models import load_model
-
+from PIL import Image
+from tensorflow.keras.models import load_model
 import platform
 
-# Muestra la versión de Python junto con detalles adicionales
-st.write("Versión de Python:", platform.python_version())
+# --- CONFIG ---
+st.set_page_config(
+    page_title="Reconocimiento IA",
+    page_icon="🤖",
+    layout="wide"
+)
 
-model = load_model('keras_model.h5')
-data = np.ndarray(shape=(1, 224, 224, 3), dtype=np.float32)
+# --- ESTILOS ---
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: white;
+}
 
-st.title("Reconocimiento de Imágenes")
-#st.write("Versión de Python:", platform.python_version())
-image = Image.open('OIG5.jpg')
-st.image(image, width=350)
+h1 {
+    text-align: center;
+    color: #38bdf8;
+}
+
+.card {
+    background: #020617;
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 0 25px rgba(56,189,248,0.2);
+    margin-top: 20px;
+}
+
+section[data-testid="stSidebar"] {
+    background: #020617;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# --- HEADER ---
+st.markdown("""
+<h1>🤖 Reconocimiento Inteligente de Imágenes</h1>
+<p style='text-align:center; color:#94a3b8;'>
+Toma una foto y deja que la IA identifique lo que ve 👀✨
+</p>
+""", unsafe_allow_html=True)
+
+# --- INFO PYTHON ---
+st.caption(f"Python {platform.python_version()}")
+
+# --- CARGA MODELO ---
+@st.cache_resource
+def cargar_modelo():
+    try:
+        return load_model('keras_model.h5')
+    except Exception as e:
+        st.error(f"❌ Error cargando el modelo: {e}")
+        return None
+
+model = cargar_modelo()
+
+if model is None:
+    st.stop()
+
+# --- SIDEBAR ---
 with st.sidebar:
-    st.subheader("Usando un modelo entrenado en teachable Machine puedes Usarlo en esta app para identificar")
-img_file_buffer = st.camera_input("Toma una Foto")
+    st.markdown("## ⚙️ Información")
+    st.write("Este modelo fue entrenado con Teachable Machine.")
+    st.write("Apunta la cámara y prueba detecciones 😏")
+
+# --- IMAGEN EJEMPLO ---
+try:
+    image = Image.open('OIG5.jpg')
+    st.image(image, width=300, caption="Ejemplo")
+except:
+    st.warning("No se encontró imagen de ejemplo")
+
+# --- CÁMARA ---
+img_file_buffer = st.camera_input("📸 Toma una Foto")
 
 if img_file_buffer is not None:
-    # To read image file buffer with OpenCV:
-    data = np.ndarray(shape=(1, 224, 224, 3), dtype=np.float32)
-   #To read image file buffer as a PIL Image:
-    img = Image.open(img_file_buffer)
 
-    newsize = (224, 224)
-    img = img.resize(newsize)
-    # To convert PIL Image to numpy array:
-    img_array = np.array(img)
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
 
-    # Normalize the image
-    normalized_image_array = (img_array.astype(np.float32) / 127.0) - 1
-    # Load the image into the array
-    data[0] = normalized_image_array
+    col1, col2 = st.columns(2)
 
-    # run the inference
-    prediction = model.predict(data)
-    print(prediction)
-    if prediction[0][0]>0.5:
-      st.header('Izquierda, con Probabilidad: '+str( prediction[0][0]) )
-    if prediction[0][1]>0.5:
-      st.header('Arriba, con Probabilidad: '+str( prediction[0][1]))
-    #if prediction[0][2]>0.5:
-    # st.header('Derecha, con Probabilidad: '+str( prediction[0][2]))
+    with col1:
+        img = Image.open(img_file_buffer).convert("RGB")
+        st.image(img, caption="Imagen capturada", use_container_width=True)
+
+    with col2:
+        # --- PROCESAMIENTO ---
+        img_resized = img.resize((224, 224))
+        img_array = np.array(img_resized)
+
+        normalized = (img_array.astype(np.float32) / 127.0) - 1
+        data = np.expand_dims(normalized, axis=0)
+
+        # --- PREDICCIÓN ---
+        with st.spinner("Analizando imagen..."):
+            try:
+                prediction = model.predict(data)
+            except Exception as e:
+                st.error(f"❌ Error en predicción: {e}")
+                st.stop()
+
+        st.markdown("### 📊 Resultados")
+
+        # --- RESULTADOS ---
+        if prediction[0][0] > 0.5:
+            st.success(f"📍 Izquierda ({prediction[0][0]:.2f})")
+
+        if prediction[0][1] > 0.5:
+            st.success(f"⬆️ Arriba ({prediction[0][1]:.2f})")
+
+        # EXTRA VISUAL 🔥
+        st.progress(float(np.max(prediction)))
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# --- FOOTER ---
+st.markdown("""
+<div style='text-align:center; color:#64748b; margin-top:30px;'>
+Hecho con ❤️ usando Streamlit + TensorFlow
+</div>
+""", unsafe_allow_html=True)
